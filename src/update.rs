@@ -312,9 +312,11 @@ pub fn launch_installer(setup: &Path, relaunch: bool) -> Result<(), String> {
     use std::os::windows::process::CommandExt;
     const DETACHED_PROCESS: u32 = 0x0000_0008;
     let mut cmd = std::process::Command::new(setup);
-    cmd.arg("/S");
+    // Always wait for this process to exit first, so the old exe is free to
+    // delete and nothing is left behind.
+    cmd.args(["/S", "--wait-pid", &std::process::id().to_string()]);
     if relaunch {
-        cmd.args(["--relaunch", "--wait-pid", &std::process::id().to_string()]);
+        cmd.arg("--relaunch");
     }
     cmd.creation_flags(DETACHED_PROCESS).spawn().map(|_| ()).map_err(|e| e.to_string())
 }
