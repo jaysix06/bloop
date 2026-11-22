@@ -13,11 +13,14 @@ try {
     cargo build --release -p bloop-setup
     if ($LASTEXITCODE -ne 0) { throw 'installer build failed' }
 
-    $version = (Select-String -Path (Join-Path $root 'installer\Cargo.toml') -Pattern '^version = "(.+)"').Matches[0].Groups[1].Value
+    $version = (Select-String -Path (Join-Path $root 'Cargo.toml') -Pattern '^version = "(.+)"').Matches[0].Groups[1].Value
     $dist = Join-Path $root 'dist'
     New-Item -ItemType Directory -Force $dist | Out-Null
     $out = Join-Path $dist "Bloop-Setup-$version.exe"
     Copy-Item (Join-Path $root 'target\release\Bloop-Setup.exe') $out -Force
+    # The update checker verifies downloads against this.
+    $hash = (Get-FileHash $out -Algorithm SHA256).Hash.ToLower()
+    Set-Content -Path "$out.sha256" -Value "$hash  Bloop-Setup-$version.exe" -Encoding ascii -NoNewline
     $mb = [math]::Round((Get-Item $out).Length / 1MB, 1)
     Write-Host "Done: $out ($mb MB)"
 }

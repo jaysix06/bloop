@@ -42,14 +42,42 @@ pub fn is_installed() -> bool {
     layout::installed_exe().exists()
 }
 
-pub fn run(opts: Options, report: impl Fn(Progress)) {
-    match install(opts, &report) {
+/// For a silent install or update: keep what's there now (a desktop
+/// shortcut, "Open with"), with "Open with" on for a fresh install.
+pub fn silent_options() -> Options {
+    let registered = winreg::RegKey::predef(winreg::enums::HKEY_CURRENT_USER)
+        .open_subkey(r"Software\RegisteredApplications")
+        .and_then(|k| k.get_value::<String, _>("Bloop"))
+        .is_ok();
+    Options {
+        desktop: layout::desktop_shortcut().exists(),
+        register: registered || !is_installed(),
+    }
+}
+
+/// Wait (up to 15 s) for process `pid` to exit.
+pub fn wait_for_exit(pid: u32) {
+    use windows::Win32::{
+        Foundation::CloseHandle,
+        System::Threading::{OpenProcess, PROCESS_SYNCHRONIZE, WaitForSingleObject},
+    };
+    // SAFETY: the handle is closed after waiting on it.
+    unsafe {
+        if let Ok(h) = OpenProcess(PROCESS_SYNCHRONIZE, false, pid) {
+            let _ = WaitForSingleObject(h, 15_000);
+            let _ = CloseHandle(h);
+        }
+    }
+}
+
+pub fn run(opts: Options, mut report: impl FnMut(Progress)) {
+    match install(opts, &mut report) {
         Ok(exe) => report(Progress::Done(exe)),
         Err(e) => report(Progress::Failed(e)),
     }
 }
 
-fn install(opts: Options, report: &impl Fn(Progress)) -> Result<PathBuf, String> {
+fn install(opts: Options, report: &mut impl FnMut(Progress)) -> Result<PathBuf, String> {
     // SAFETY: first COM use on this worker thread; shell links want an STA.
     let _ = unsafe { CoInitializeEx(None, COINIT_APARTMENTTHREADED) };
     let dir = layout::install_dir();

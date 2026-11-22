@@ -1,13 +1,19 @@
 [package]
 name = "bloop"
-version = "0.1.0"
+version.workspace = true
 edition = "2024"
 rust-version = "1.95"
 description = "Bloop: a fast, quiet photo, GIF and video viewer for Windows."
 license = "MIT"
+repository.workspace = true
 
 [workspace]
 members = ["installer"]
+
+# One version for the app and its installer; scripts/release.ps1 tags it.
+[workspace.package]
+version = "0.1.0"
+repository = "https://github.com/jaysix06/bloop"
 
 [dependencies]
 zgx = "0.1.10"
@@ -21,6 +27,11 @@ mimalloc = { version = "0.1", default-features = false }
 winreg = "0.55"
 windows-core = "0.62"
 usvg = { version = "0.46", default-features = false }
+ureq = { version = "2", default-features = false, features = ["native-tls", "json"] }
+native-tls = "0.2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+sha2 = "0.10"
 
 [dependencies.windows]
 version = "0.62"

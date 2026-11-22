@@ -95,6 +95,18 @@ pub struct App {
     pending_delete: RefCell<Option<(u64, Entry)>>,
     delete_epoch: Cell<u64>,
     pub recent: Signal<Vec<PathBuf>>,
+    pub update: Signal<UpdateUi>,
+    update_ready: RefCell<Option<(crate::update::Release, PathBuf)>>,
+    install_on_exit: Cell<bool>,
+}
+
+/// The update card's state.
+#[derive(Clone, PartialEq, Debug)]
+pub enum UpdateUi {
+    Hidden,
+    Checking,
+    Downloading { version: String, progress: f32 },
+    Ready { version: String, notes: String },
 }
 
 fn blank() -> Arc<ImageData> {
@@ -165,9 +177,24 @@ impl App {
             pending_delete: Default::default(),
             delete_epoch: Cell::new(0),
             recent: rt.signal(crate::recent::load()),
+            update: rt.signal(UpdateUi::Hidden),
+            update_ready: Default::default(),
+            install_on_exit: Cell::new(false),
             rt,
         });
         app.start_pumps(video_rx);
+        // The daily automatic check, a few seconds after startup so it never
+        // competes with opening the first picture. Only an installed copy
+        // updates itself.
+        if crate::update::is_configured() && crate::update::is_installed_copy() && crate::update::due() {
+            let weak = Rc::downgrade(&app);
+            app.tasks.spawn(async move {
+                zgx::timer::sleep(Duration::from_secs(5)).await;
+                if let Some(app) = weak.upgrade() {
+                    app.check_updates(false);
+                }
+            });
+        }
         app
     }
 
@@ -917,6 +944,118 @@ impl App {
                 self.toast("Bloop is registered", "Pick Bloop as the default in Settings.");
             }
             Err(e) => self.toast_error("Couldn't register", &e.to_string()),
+        }
+    }
+
+    // ----- updates -----------------------------------------------------------------
+
+    /// Check GitHub for a newer release and download it in the background.
+    /// `manual` (from the menu) reports "up to date" and errors; the daily
+    /// automatic check stays silent unless there is an update.
+    pub fn check_updates(self: &Rc<Self>, manual: bool) {
+        if !crate::update::is_configured() {
+            if manual {
+                self.toast_error("Updates aren't set up", "This build has no GitHub repository configured.");
+            }
+            return;
+        }
+        if matches!(self.update.get(), UpdateUi::Checking | UpdateUi::Downloading { .. }) {
+            return;
+        }
+        if let UpdateUi::Ready { .. } = self.update.get() {
+            return;
+        }
+        if manual {
+            self.update.set(UpdateUi::Checking);
+        }
+        let (tx, rx) = async_channel::unbounded();
+        std::thread::Builder::new()
+            .name("bloop-update".into())
+            .spawn(move || {
+                crate::update::check_and_download(manual, |e| {
+                    let _ = tx.send_blocking(e);
+                })
+            })
+            .expect("spawn updater");
+        let weak = Rc::downgrade(self);
+        self.tasks.spawn(async move {
+            use crate::update::Event;
+            let mut version = String::new();
+            while let Ok(event) = rx.recv().await {
+                let Some(app) = weak.upgrade() else { break };
+                match event {
+                    Event::UpToDate => {
+                        app.update.set(UpdateUi::Hidden);
+                        if manual {
+                            app.toast("You're up to date", &format!("Bloop {} is the latest version.", crate::update::CURRENT));
+                        }
+                    }
+                    Event::Found(r) => {
+                        version = r.version.clone();
+                        app.update.set(UpdateUi::Downloading { version: version.clone(), progress: 0. });
+                    }
+                    Event::Progress(p) => {
+                        if !version.is_empty() {
+                            app.update.set(UpdateUi::Downloading { version: version.clone(), progress: p });
+                        }
+                    }
+                    Event::Ready(r, path) => {
+                        app.update.set(UpdateUi::Ready { version: r.version.clone(), notes: r.notes.clone() });
+                        *app.update_ready.borrow_mut() = Some((r, path));
+                        // Unless told otherwise, it goes in when Bloop closes.
+                        app.install_on_exit.set(true);
+                    }
+                    Event::Failed(e) => {
+                        app.update.set(UpdateUi::Hidden);
+                        if manual {
+                            app.toast_error("Couldn't check for updates", &e);
+                        }
+                    }
+                }
+            }
+        });
+    }
+
+    /// Install the downloaded update now and reopen Bloop afterwards.
+    pub fn restart_to_update(&self) {
+        let Some((_, path)) = self.update_ready.borrow().clone() else { return };
+        self.commit_pending_delete();
+        match crate::update::launch_installer(&path, true) {
+            Ok(()) => {
+                self.install_on_exit.set(false);
+                self.window.close();
+            }
+            Err(e) => self.toast_error("Couldn't start the update", &e),
+        }
+    }
+
+    /// Hide the card; the update still installs when Bloop closes.
+    pub fn update_later(&self) {
+        self.update.set(UpdateUi::Hidden);
+    }
+
+    /// Don't offer this version again, and don't install it on exit.
+    pub fn skip_update(&self) {
+        if let Some((r, _)) = self.update_ready.borrow_mut().take() {
+            crate::update::skip(&r.version);
+        }
+        self.install_on_exit.set(false);
+        self.update.set(UpdateUi::Hidden);
+    }
+
+    pub fn open_release_page(&self) {
+        if let Some((r, _)) = self.update_ready.borrow().as_ref() {
+            let _ = std::process::Command::new("explorer.exe").arg(&r.page).spawn();
+        }
+    }
+
+    /// Everything that must happen before the window goes away.
+    pub fn on_exit(&self) {
+        self.commit_pending_delete();
+        if self.install_on_exit.replace(false)
+            && let Some((_, path)) = self.update_ready.borrow().as_ref()
+        {
+            let _ = crate::update::launch_installer(path, false);
         }
     }
 

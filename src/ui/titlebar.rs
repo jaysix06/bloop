@@ -197,7 +197,7 @@ fn window_buttons(app: Rc<App>) -> View {
             ),
         )
         .child(caption(Icon::Close, true, Box::new(move || {
-            close.commit_pending_delete();
+            close.on_exit();
             close.window.close();
         })))
 }

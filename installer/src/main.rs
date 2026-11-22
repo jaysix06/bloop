@@ -35,9 +35,30 @@ enum Page {
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    // `Bloop-Setup.exe /S` installs silently with the defaults.
-    if std::env::args().any(|a| a.eq_ignore_ascii_case("/S") || a == "--silent") {
-        install::run(Options { desktop: false, register: true }, |_| {});
+    // `Bloop-Setup.exe /S` installs silently, keeping the current choices
+    // (the in-app updater uses this). `--relaunch --wait-pid N` waits for
+    // the old Bloop to exit, then opens the new one.
+    let args: Vec<String> = std::env::args().skip(1).collect();
+    if args.iter().any(|a| a.eq_ignore_ascii_case("/S") || a == "--silent") {
+        let wait_pid = args
+            .iter()
+            .position(|a| a == "--wait-pid")
+            .and_then(|i| args.get(i + 1))
+            .and_then(|p| p.parse::<u32>().ok());
+        if let Some(pid) = wait_pid {
+            install::wait_for_exit(pid);
+        }
+        let mut installed = None;
+        install::run(install::silent_options(), |p| {
+            if let Progress::Done(exe) = p {
+                installed = Some(exe);
+            }
+        });
+        if args.iter().any(|a| a == "--relaunch")
+            && let Some(exe) = installed
+        {
+            let _ = std::process::Command::new(exe).spawn();
+        }
         return Ok(());
     }
     Application::new()

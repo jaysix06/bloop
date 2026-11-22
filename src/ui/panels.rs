@@ -96,7 +96,20 @@ fn section(title: &str, rows: &[(String, String)]) -> View {
 }
 
 fn register_footer(app: Rc<App>) -> View {
-    column().px(18.).pb(18.).pt(12.).gap(8.).child_when(
+    let check = app.clone();
+    column().px(18.).pb(18.).pt(12.).gap(10.).child(
+        row()
+            .gap(8.)
+            .items_center()
+            .child(text(format!("Bloop {}", crate::update::CURRENT)).text_size(12.).text_color(theme::TEXT_FAINT))
+            .child(div().grow())
+            .child(
+                text("Check for updates")
+                    .text_size(12.)
+                    .text_color(theme::ACCENT)
+                    .on_click(move || check.check_updates(true)),
+            ),
+    ).child_when(
         {
             let app = app.clone();
             move || Some(app.registered.get())

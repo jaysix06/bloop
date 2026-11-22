@@ -5,6 +5,7 @@ mod controls;
 pub mod icons;
 mod panels;
 mod titlebar;
+mod update_card;
 mod viewer;
 
 use crate::{app::App, theme};
@@ -42,6 +43,7 @@ pub fn root(app: Rc<App>) -> View {
                     move |_, _| browser::browser(app.clone())
                 },
             )
+            .child(update_card::update_card(app.clone()))
             .child(panels::drop_hint(app.clone()))
             .child(panels::confirm_delete(app.clone()))
             .child(panels::help(app.clone()))

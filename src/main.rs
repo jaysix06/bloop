@@ -12,6 +12,7 @@ mod recent;
 mod shell;
 mod theme;
 mod ui;
+mod update;
 mod video;
 mod wic;
 
@@ -106,7 +107,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             {
                 let app = app.clone();
                 cx.on_close_requested(move || {
-                    app.commit_pending_delete();
+                    app.on_exit();
                     true
                 });
             }

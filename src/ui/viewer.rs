@@ -123,10 +123,16 @@ pub fn stage(app: Rc<App>) -> View {
 
 fn context_items(app: &Rc<App>) -> Vec<View> {
     if app.current().is_none() {
-        return vec![menu_item("Open folder…").shortcut("Ctrl+O").on_click({
-            let app = app.clone();
-            move || { app.browser_open.set(true); }
-        })];
+        return vec![
+            menu_item("Open folder…").shortcut("Ctrl+O").on_click({
+                let app = app.clone();
+                move || { app.browser_open.set(true); }
+            }),
+            menu_item("Check for updates…").on_click({
+                let app = app.clone();
+                move || app.check_updates(true)
+            }),
+        ];
     }
     let is_image = app.kind.get() == Some(MediaKind::Image);
     let mut items = Vec::new();
@@ -150,6 +156,7 @@ fn context_items(app: &Rc<App>) -> Vec<View> {
     items.push(menu_item("Slideshow").shortcut("S").on_click(a(|a| a.toggle_slideshow())));
     items.push(menu_item("Info").shortcut("I").on_click(a(|a| a.toggle_info())));
     items.push(menu_item("Delete").shortcut("Del").on_click(a(|a| a.ask_delete())));
+    items.push(menu_item("Check for updates…").on_click(a(|a| a.check_updates(true))));
     items
 }
 

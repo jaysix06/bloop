@@ -27,6 +27,28 @@ It builds `bloop.exe`, embeds it in the setup program (`installer/`), and
 writes `dist\Bloop-Setup-<version>.exe`. Both executables link the C runtime
 statically, so they need nothing else installed.
 
+## Updates
+
+An installed Bloop checks this repo's
+[GitHub Releases](https://github.com/jaysix06/bloop/releases) about five
+seconds after launch, at most once a day. When there is a newer version, it
+downloads `Bloop-Setup-<version>.exe` in the background and verifies it
+against the release's `.sha256` file. A card then offers **Restart**, or
+installs the update silently the next time you close Bloop. You can also
+pick **Check for updates…** from the right-click menu or the Details panel.
+Copies run from `target\` never update themselves.
+
+## Releasing
+
+```powershell
+.\scripts\release.ps1 -Version 0.2.0 -Notes "What changed"
+```
+
+The script bumps the version (shared by the app and the installer in
+`[workspace.package]`), commits, builds the installer and its checksum,
+pushes, and publishes the `v0.2.0` release with both files attached. You
+need the GitHub CLI, signed in.
+
 ## Build and run
 
 ```powershell
