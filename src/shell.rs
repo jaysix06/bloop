@@ -111,10 +111,20 @@ pub fn reveal(path: &Path) {
         .spawn();
 }
 
+/// Open a URL or `ms-settings:` link with its handler, query string intact
+/// (`explorer.exe <uri>` drops the query and opens Documents instead).
+pub fn open_uri(uri: &str) {
+    use windows::Win32::UI::{Shell::ShellExecuteW, WindowsAndMessaging::SW_SHOWNORMAL};
+    // SAFETY: plain ShellExecute with owned wide strings.
+    unsafe {
+        ShellExecuteW(None, &HSTRING::from("open"), &HSTRING::from(uri), None, None, SW_SHOWNORMAL);
+    }
+}
+
+/// Settings › Default apps, opened on Bloop's own page (its registered
+/// file types listed, with Windows' "Set default" button at the top).
 pub fn open_default_apps_settings() {
-    let _ = std::process::Command::new("explorer.exe")
-        .arg("ms-settings:defaultapps?registeredAppUser=Bloop")
-        .spawn();
+    open_uri("ms-settings:defaultapps?registeredAppUser=Bloop");
 }
 
 const APP_KEY: &str = r"Software\Clients\Media\Bloop";
@@ -122,8 +132,19 @@ const APP_KEY: &str = r"Software\Clients\Media\Bloop";
 /// Per-user registration: Bloop shows up in "Open with" and Settings ›
 /// Default apps. Windows leaves the final choice to the user.
 pub fn register() -> std::io::Result<()> {
+    let all: Vec<&str> = all_extensions().map(|(e, _)| e).collect();
+    register_exts(&all)
+}
+
+/// Register Bloop, offering only `selected` extensions to Settings ›
+/// Default apps, so its page there lists just those. "Open with" still lists
+/// Bloop for every format it can open.
+pub fn register_exts(selected: &[&str]) -> std::io::Result<()> {
     use winreg::{RegKey, enums::HKEY_CURRENT_USER};
-    let exe = std::env::current_exe()?;
+    // The installed copy when there is one, so a dev build never points
+    // your file types at target\.
+    let installed = crate::install_layout::installed_exe();
+    let exe = if installed.exists() { installed } else { std::env::current_exe()? };
     let exe = exe.display().to_string();
     let hkcu = RegKey::predef(HKEY_CURRENT_USER);
     let classes = hkcu.create_subkey(r"Software\Classes")?.0;
@@ -146,11 +167,15 @@ pub fn register() -> std::io::Result<()> {
     let (caps, _) = hkcu.create_subkey(format!(r"{APP_KEY}\Capabilities"))?;
     caps.set_value("ApplicationName", &"Bloop")?;
     caps.set_value("ApplicationDescription", &"A fast, quiet photo, GIF and video viewer.")?;
+    // Rebuilt from scratch, so formats you unticked drop off Bloop's page.
+    let _ = caps.delete_subkey_all("FileAssociations");
     let (assoc, _) = caps.create_subkey("FileAssociations")?;
     for (ext, kind) in all_extensions() {
         let progid = if kind == MediaKind::Video { "Bloop.Video" } else { "Bloop.Image" };
         let dot = format!(".{ext}");
-        assoc.set_value(&dot, &progid)?;
+        if selected.contains(&ext) {
+            assoc.set_value(&dot, &progid)?;
+        }
         types.set_value(&dot, &"")?;
         let (owl, _) = classes.create_subkey(format!(r"{dot}\OpenWithProgids"))?;
         owl.set_value(progid, &"")?;
@@ -191,6 +216,17 @@ pub fn unregister() -> std::io::Result<()> {
 fn notify_assoc_changed() {
     // SAFETY: documented no-argument notification.
     unsafe { SHChangeNotify(SHCNE_ASSOCCHANGED, SHCNF_IDLIST, None, None) };
+}
+
+/// Whether `.ext` currently opens with Bloop, per the user's choice in
+/// Settings (UserChoice), which is what Explorer follows.
+pub fn is_default_for(ext: &str) -> bool {
+    use winreg::{RegKey, enums::HKEY_CURRENT_USER};
+    let key = format!(r"Software\Microsoft\Windows\CurrentVersion\Explorer\FileExts\.{ext}\UserChoice");
+    RegKey::predef(HKEY_CURRENT_USER)
+        .open_subkey(key)
+        .and_then(|k| k.get_value::<String, _>("ProgId"))
+        .is_ok_and(|p| p.starts_with("Bloop.") || p.eq_ignore_ascii_case(r"Applications\bloop.exe"))
 }
 
 pub fn is_registered() -> bool {

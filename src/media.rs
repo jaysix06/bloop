@@ -20,6 +20,42 @@ const VIDEO: &[&str] = &[
     "mp4", "m4v", "mov", "webm", "mkv", "avi", "wmv", "3gp", "mpg", "mpeg", "ts", "m2ts",
 ];
 
+/// A format as people know it ("JPEG"), and the extensions it covers.
+pub struct Format {
+    pub label: &'static str,
+    pub exts: &'static [&'static str],
+    pub video: bool,
+}
+
+const fn f(label: &'static str, exts: &'static [&'static str], video: bool) -> Format {
+    Format { label, exts, video }
+}
+
+/// Every format Bloop opens, grouped for the "Make Bloop as Default" dialog.
+/// Together they cover exactly the IMAGE/VIDEO lists and GIF/SVG.
+pub const FORMATS: &[Format] = &[
+    f("JPEG", &["jpg", "jpeg", "jpe", "jfif"], false),
+    f("PNG", &["png", "apng"], false),
+    f("WebP", &["webp"], false),
+    f("GIF", &["gif"], false),
+    f("HEIC", &["heic", "heif"], false),
+    f("AVIF", &["avif"], false),
+    f("BMP", &["bmp", "dib"], false),
+    f("TIFF", &["tif", "tiff"], false),
+    f("SVG", &["svg"], false),
+    f("ICO", &["ico"], false),
+    f("TGA", &["tga"], false),
+    f("JPEG XR", &["jxr", "wdp"], false),
+    f("MP4", &["mp4", "m4v"], true),
+    f("MOV", &["mov"], true),
+    f("MKV", &["mkv"], true),
+    f("WebM", &["webm"], true),
+    f("AVI", &["avi"], true),
+    f("WMV", &["wmv"], true),
+    f("MPEG", &["mpg", "mpeg", "ts", "m2ts"], true),
+    f("3GP", &["3gp"], true),
+];
+
 pub fn kind_of(path: &Path) -> Option<MediaKind> {
     let ext = path.extension()?.to_str()?.to_ascii_lowercase();
     let ext = ext.as_str();
@@ -182,6 +218,14 @@ mod tests {
     fn natural_order() {
         assert_eq!(natural_cmp("img2.jpg", "img10.jpg"), Ordering::Less);
         assert_eq!(natural_cmp("B.jpg", "a.jpg"), Ordering::Greater);
+    }
+    #[test]
+    fn formats_cover_every_extension() {
+        let listed: Vec<&str> = FORMATS.iter().flat_map(|f| f.exts.iter().copied()).collect();
+        for (ext, _) in all_extensions() {
+            assert!(listed.contains(&ext), "{ext} missing from FORMATS");
+        }
+        assert_eq!(listed.len(), all_extensions().count());
     }
     #[test]
     fn kinds() {

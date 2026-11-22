@@ -98,6 +98,13 @@ pub struct App {
     pub update: Signal<UpdateUi>,
     update_ready: RefCell<Option<(crate::update::Release, PathBuf)>>,
     install_on_exit: Cell<bool>,
+    /// The "Make Bloop as Default" dialog: open, which formats are ticked,
+    /// which already open with Bloop, and whether Settings has been opened.
+    pub default_open: Signal<bool>,
+    pub default_selected: Signal<Vec<bool>>,
+    pub default_status: Signal<Vec<bool>>,
+    pub default_sent: Signal<bool>,
+    default_epoch: Cell<u64>,
 }
 
 /// The update card's state.
@@ -180,9 +187,29 @@ impl App {
             update: rt.signal(UpdateUi::Hidden),
             update_ready: Default::default(),
             install_on_exit: Cell::new(false),
+            default_open: rt.signal(false),
+            default_selected: rt.signal(vec![true; media::FORMATS.len()]),
+            default_status: rt.signal(vec![false; media::FORMATS.len()]),
+            default_sent: rt.signal(false),
+            default_epoch: Cell::new(0),
             rt,
         });
         app.start_pumps(video_rx);
+        // First run of an installed copy: offer to become the default viewer,
+        // once, if no photo format opens with Bloop yet.
+        if crate::update::is_installed_copy() && !crate::prefs::get().default_prompted {
+            let weak = Rc::downgrade(&app);
+            app.tasks.spawn(async move {
+                zgx::timer::sleep(Duration::from_millis(1200)).await;
+                if let Some(app) = weak.upgrade() {
+                    crate::prefs::update(|p| p.default_prompted = true);
+                    let any = media::FORMATS.iter().any(|f| !f.video && crate::shell::is_default_for(f.exts[0]));
+                    if !any {
+                        app.open_default_dialog();
+                    }
+                }
+            });
+        }
         // The daily automatic check, a few seconds after startup so it never
         // competes with opening the first picture. Only an installed copy
         // updates itself.
@@ -936,14 +963,87 @@ impl App {
         }
     }
 
-    pub fn register(&self) {
-        match crate::shell::register() {
+    // ----- default app -------------------------------------------------------------
+
+    pub fn open_default_dialog(self: &Rc<Self>) {
+        self.refresh_default_status();
+        // Pre-tick everything that isn't already Bloop's.
+        self.default_selected.set(vec![true; media::FORMATS.len()]);
+        self.default_sent.set(false);
+        self.default_open.set(true);
+        self.watch_default_status();
+    }
+
+    pub fn close_default_dialog(&self) {
+        self.default_open.set(false);
+        self.default_epoch.set(self.default_epoch.get() + 1);
+    }
+
+    pub fn toggle_default_format(&self, i: usize) {
+        let mut v = self.default_selected.get();
+        if let Some(x) = v.get_mut(i) {
+            *x = !*x;
+        }
+        self.default_selected.set(v);
+    }
+
+    /// Tick or untick a whole group (photos or videos).
+    pub fn set_default_group(&self, video: bool, on: bool) {
+        let mut v = self.default_selected.get();
+        for (i, f) in media::FORMATS.iter().enumerate() {
+            if f.video == video {
+                v[i] = on;
+            }
+        }
+        self.default_selected.set(v);
+    }
+
+    fn refresh_default_status(&self) {
+        // A format counts as Bloop's when its main extension opens with Bloop.
+        let status: Vec<bool> =
+            media::FORMATS.iter().map(|f| crate::shell::is_default_for(f.exts[0])).collect();
+        if self.default_status.get() != status {
+            self.default_status.set(status);
+        }
+    }
+
+    /// While the dialog is open, follow what you change in Settings.
+    fn watch_default_status(self: &Rc<Self>) {
+        let epoch = self.default_epoch.get() + 1;
+        self.default_epoch.set(epoch);
+        let weak = Rc::downgrade(self);
+        self.tasks.spawn(async move {
+            loop {
+                zgx::timer::sleep(Duration::from_millis(1200)).await;
+                let Some(app) = weak.upgrade() else { break };
+                if app.default_epoch.get() != epoch || !app.default_open.get() {
+                    break;
+                }
+                app.refresh_default_status();
+            }
+        });
+    }
+
+    /// Register Bloop for the ticked formats and open its page in Settings ›
+    /// Default apps, where they're listed ready to confirm.
+    pub fn apply_default(&self) {
+        let selected = self.default_selected.get();
+        let exts: Vec<&str> = media::FORMATS
+            .iter()
+            .zip(&selected)
+            .filter(|(_, on)| **on)
+            .flat_map(|(f, _)| f.exts.iter().copied())
+            .collect();
+        if exts.is_empty() {
+            return;
+        }
+        match crate::shell::register_exts(&exts) {
             Ok(()) => {
                 self.registered.set(true);
                 crate::shell::open_default_apps_settings();
-                self.toast("Bloop is registered", "Pick Bloop as the default in Settings.");
+                self.default_sent.set(true);
             }
-            Err(e) => self.toast_error("Couldn't register", &e.to_string()),
+            Err(e) => self.toast_error("Couldn't register Bloop", &e.to_string()),
         }
     }
 
@@ -1045,7 +1145,7 @@ impl App {
 
     pub fn open_release_page(&self) {
         if let Some((r, _)) = self.update_ready.borrow().as_ref() {
-            let _ = std::process::Command::new("explorer.exe").arg(&r.page).spawn();
+            crate::shell::open_uri(&r.page);
         }
     }
 

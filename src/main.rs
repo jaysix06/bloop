@@ -8,6 +8,7 @@ mod loader;
 mod media;
 mod meta;
 mod orient;
+mod prefs;
 mod recent;
 mod shell;
 mod theme;

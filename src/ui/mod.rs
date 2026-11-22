@@ -2,6 +2,7 @@
 //! dialogs and the file browser are zgx views, never native controls.
 mod browser;
 mod controls;
+mod default_dialog;
 pub mod icons;
 mod panels;
 mod titlebar;
@@ -47,6 +48,7 @@ pub fn root(app: Rc<App>) -> View {
             .child(panels::drop_hint(app.clone()))
             .child(panels::confirm_delete(app.clone()))
             .child(panels::help(app.clone()))
+            .child(default_dialog::default_dialog(app.clone()))
             .child(zgx_components::toast_host())
             .on_document_event(move |event| on_key(&keys, event))
             .on_event(move |cx| {
@@ -79,6 +81,12 @@ fn on_key(app: &Rc<App>, event: &InputEvent) {
             if app.browser_open.get() {
                 if *key == Key::Escape {
                     app.escape();
+                }
+                return;
+            }
+            if app.default_open.get() {
+                if *key == Key::Escape {
+                    app.close_default_dialog();
                 }
                 return;
             }

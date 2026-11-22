@@ -129,10 +129,10 @@ fn register_footer(app: Rc<App>) -> View {
                             text("Defaults…")
                                 .text_size(12.)
                                 .text_color(theme::ACCENT)
-                                .on_click(crate::shell::open_default_apps_settings),
+                                .on_click(move || app.open_default_dialog()),
                         )
                 } else {
-                    text_button("Make Bloop a default viewer…", false, move || app.register())
+                    text_button("Make Bloop as Default…", false, move || app.open_default_dialog())
                 }
             }
         },

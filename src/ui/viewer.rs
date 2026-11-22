@@ -128,6 +128,10 @@ fn context_items(app: &Rc<App>) -> Vec<View> {
                 let app = app.clone();
                 move || { app.browser_open.set(true); }
             }),
+            menu_item("Make Bloop as Default…").on_click({
+                let app = app.clone();
+                move || app.open_default_dialog()
+            }),
             menu_item("Check for updates…").on_click({
                 let app = app.clone();
                 move || app.check_updates(true)
@@ -156,6 +160,7 @@ fn context_items(app: &Rc<App>) -> Vec<View> {
     items.push(menu_item("Slideshow").shortcut("S").on_click(a(|a| a.toggle_slideshow())));
     items.push(menu_item("Info").shortcut("I").on_click(a(|a| a.toggle_info())));
     items.push(menu_item("Delete").shortcut("Del").on_click(a(|a| a.ask_delete())));
+    items.push(menu_item("Make Bloop as Default…").on_click(a(|a| a.open_default_dialog())));
     items.push(menu_item("Check for updates…").on_click(a(|a| a.check_updates(true))));
     items
 }

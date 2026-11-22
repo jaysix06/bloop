@@ -66,8 +66,14 @@ To make Bloop show up in **Open with** and **Settings › Default apps**
 .\target\release\bloop.exe --register
 ```
 
-`--unregister` removes it. You can also use the button at the bottom of the
-Details panel (press `I`).
+`--unregister` removes it.
+
+To make Bloop your default viewer, right-click and choose **Make Bloop as
+Default…** (also in the Details panel, and offered once on first run). Pick
+the formats you want. Bloop registers for exactly those and opens Settings ›
+Default apps on its own page, where Windows has you confirm them. Windows
+doesn't let apps set defaults themselves. The dialog shows live which
+formats already open with Bloop.
 
 ## Formats
 
