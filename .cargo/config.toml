@@ -1,0 +1,4 @@
+# Link the C runtime statically so bloop.exe and Bloop-Setup.exe run on a
+# fresh Windows install without the Visual C++ Redistributable.
+[target.x86_64-pc-windows-msvc]
+rustflags = ["-C", "target-feature=+crt-static"]

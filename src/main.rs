@@ -3,6 +3,7 @@
 
 mod app;
 mod decode;
+mod install_layout;
 mod loader;
 mod media;
 mod meta;
@@ -27,10 +28,17 @@ thread_local! {
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args: Vec<String> = std::env::args().skip(1).collect();
+    let quiet = args.iter().any(|a| a == "--quiet");
     if args.iter().any(|a| a == "--register") {
         shell::register()?;
-        println!("Bloop registered for this user. Choose it in Settings › Apps › Default apps.");
-        shell::open_default_apps_settings();
+        if !quiet {
+            println!("Bloop registered for this user. Choose it in Settings › Apps › Default apps.");
+            shell::open_default_apps_settings();
+        }
+        return Ok(());
+    }
+    if args.iter().any(|a| a == "--uninstall") {
+        shell::uninstall_app();
         return Ok(());
     }
     if args.iter().any(|a| a == "--unregister") {
@@ -42,7 +50,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     Application::new()
         // One Bloop at a time: opening another file reuses this window.
-        .application_id("Bloop.Viewer")?
+        .application_id(install_layout::APP_ID)?
         .on_application_event(|event, _| {
             if let ApplicationEvent::OpenUrls(urls) = event {
                 APP.with(|a| {

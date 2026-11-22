@@ -214,3 +214,33 @@ mod tests {
         assert!(t.width() > 0 && t.height() > 0);
     }
 }
+
+/// Remove an installed Bloop: file associations, shortcuts, the Settings ›
+/// Apps entry, and finally its folder (after this process exits). Only
+/// deletes the folder when running from the per-user install location.
+pub fn uninstall_app() {
+    use crate::install_layout as layout;
+    let _ = unregister();
+    for lnk in [layout::start_menu_shortcut(), layout::desktop_shortcut()] {
+        let _ = std::fs::remove_file(lnk);
+    }
+    let _ = winreg::RegKey::predef(winreg::enums::HKEY_CURRENT_USER)
+        .delete_subkey_all(layout::UNINSTALL_KEY);
+    let dir = layout::install_dir();
+    let running_installed = std::env::current_exe()
+        .ok()
+        .and_then(|e| e.parent().map(|p| p.to_path_buf()))
+        .is_some_and(|p| crate::media::normalize(&p) == crate::media::normalize(&dir));
+    if running_installed && dir.ends_with(r"Programs\Bloop") {
+        // The exe can't delete its own folder while running; a hidden cmd
+        // waits for it to exit, then removes the folder.
+        const CREATE_NO_WINDOW: u32 = 0x0800_0000;
+        let _ = std::process::Command::new("cmd.exe")
+            .raw_arg(format!(
+                "/C ping 127.0.0.1 -n 3 > nul & rmdir /S /Q \"{}\"",
+                dir.display()
+            ))
+            .creation_flags(CREATE_NO_WINDOW)
+            .spawn();
+    }
+}

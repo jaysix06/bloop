@@ -1,0 +1,36 @@
+[package]
+name = "bloop-setup"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.95"
+description = "Installer for Bloop."
+license = "MIT"
+publish = false
+
+[[bin]]
+name = "Bloop-Setup"
+path = "src/main.rs"
+
+[dependencies]
+zgx = "0.1.10"
+zgx-desktop = "0.1.10"
+async-channel = "2"
+mimalloc = { version = "0.1", default-features = false }
+winreg = "0.55"
+
+[dependencies.windows]
+version = "0.62"
+features = [
+    "Win32_Foundation",
+    "Win32_System_Com",
+    "Win32_System_Com_StructuredStorage",
+    "Win32_System_Variant",
+    "Win32_Storage_EnhancedStorage",
+    "Win32_UI_Shell",
+    "Win32_UI_Shell_Common",
+    "Win32_UI_Shell_PropertiesSystem",
+]
+
+[build-dependencies]
+image = { version = "0.25", default-features = false, features = ["ico", "png"] }
+winresource = "0.1"

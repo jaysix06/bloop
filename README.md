@@ -5,6 +5,28 @@ A fast, quiet photo, GIF and video viewer for Windows, written in Rust on
 becomes a carousel. Every part of the window is drawn by Bloop: the
 titlebar, menus, dialogs and file browser are not native Windows controls.
 
+## Install
+
+Run `dist\Bloop-Setup-<version>.exe`. It installs for the current user
+only (no admin) into `%LOCALAPPDATA%\Programs\Bloop`, and adds:
+
+- a Start menu shortcut, and optionally a desktop one
+- Bloop to **Open with** and **Settings › Default apps**
+- an entry in **Settings › Apps › Installed apps** for uninstalling
+
+`Bloop-Setup.exe /S` installs silently with the defaults. Running the setup
+again updates Bloop in place, even while it's open.
+
+To build the installer:
+
+```powershell
+.\scripts\package.ps1
+```
+
+It builds `bloop.exe`, embeds it in the setup program (`installer/`), and
+writes `dist\Bloop-Setup-<version>.exe`. Both executables link the C runtime
+statically, so they need nothing else installed.
+
 ## Build and run
 
 ```powershell

@@ -6,6 +6,9 @@ rust-version = "1.95"
 description = "Bloop: a fast, quiet photo, GIF and video viewer for Windows."
 license = "MIT"
 
+[workspace]
+members = ["installer"]
+
 [dependencies]
 zgx = "0.1.10"
 zgx-components = "0.1.10"

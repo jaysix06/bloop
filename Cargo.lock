@@ -616,6 +616,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "bloop-setup"
+version = "0.1.0"
+dependencies = [
+ "async-channel",
+ "image",
+ "mimalloc",
+ "windows",
+ "winreg",
+ "winresource",
+ "zgx",
+ "zgx-desktop",
+]
+
+[[package]]
 name = "built"
 version = "0.8.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
