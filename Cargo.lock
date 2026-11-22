@@ -607,7 +607,7 @@ dependencies = [
 
 [[package]]
 name = "bloop"
-version = "0.1.2"
+version = "0.1.3"
 dependencies = [
  "async-channel",
  "image",
@@ -631,7 +631,7 @@ dependencies = [
 
 [[package]]
 name = "bloop-setup"
-version = "0.1.2"
+version = "0.1.3"
 dependencies = [
  "async-channel",
  "image",
