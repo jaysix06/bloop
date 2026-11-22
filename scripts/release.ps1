@@ -28,7 +28,8 @@ try {
         $Version = $Version.TrimStart('v')
         $text = Get-Content $manifest -Raw
         $text = [regex]::Replace($text, '(?m)^version = "[^"]+"', "version = `"$Version`"", 1)
-        Set-Content $manifest $text -NoNewline -Encoding utf8
+        # UTF-8 without a BOM (PowerShell 5.1's -Encoding utf8 adds one).
+        [IO.File]::WriteAllText($manifest, $text, (New-Object Text.UTF8Encoding $false))
         cargo update -w --offline | Out-Null
         git add Cargo.toml Cargo.lock
         git commit -m "Release $Version"
