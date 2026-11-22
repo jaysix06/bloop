@@ -1,0 +1,68 @@
+# Bloop
+
+A fast, quiet photo, GIF and video viewer for Windows, written in Rust on
+[zgx](https://github.com/zeronsh/zgx). Open one file and the whole folder
+becomes a carousel. Every part of the window is drawn by Bloop: the
+titlebar, menus, dialogs and file browser are not native Windows controls.
+
+## Build and run
+
+```powershell
+cargo build --release
+.\target\release\bloop.exe C:\path\to\photo.jpg
+```
+
+You need stable Rust 1.95 or newer on the MSVC toolchain, plus the Visual
+Studio C++ build tools.
+
+To make Bloop show up in **Open with** and **Settings › Default apps**
+(per-user, no admin rights needed):
+
+```powershell
+.\target\release\bloop.exe --register
+```
+
+`--unregister` removes it. You can also use the button at the bottom of the
+Details panel (press `I`).
+
+## Formats
+
+- **Images:** JPG, PNG, WebP, BMP, TIFF, ICO, TGA, SVG and animated GIF.
+  AVIF, HEIC and JPEG XR open through Windows' own codecs, so they need the
+  matching free Microsoft Store extensions.
+- **Video:** MP4, MOV, M4V, AVI, WMV and MKV/WebM, played through Windows
+  Media Foundation. WebM needs Microsoft's free *Web Media Extensions*.
+
+## Keys
+
+| Key | Action |
+| --- | --- |
+| ← → · A D · PgUp PgDn | Previous / next (wraps around) |
+| Home / End | First / last |
+| Wheel · pinch | Zoom toward the pointer |
+| Shift+wheel · sideways swipe | Previous / next |
+| Double-click | Fit ↔ 100% |
+| + − · 0 · 1 | Zoom in, zoom out · fit · 100% |
+| Drag | Pan while zoomed |
+| F · F11 · Enter | Full screen |
+| R · Shift+R · Ctrl+S | Rotate right, rotate left · save the rotation (lossless for camera JPEGs) |
+| I | Details panel (EXIF) |
+| Del | Move to Recycle Bin, with Undo |
+| S | Slideshow |
+| Space · K | Play / pause video |
+| Shift+← → · J | Seek video |
+| M · L | Mute · loop |
+| Ctrl+C · Ctrl+Shift+C | Copy picture · copy path |
+| Ctrl+E | Show in folder |
+| Ctrl+O | Open (built-in browser) |
+| F1 | All shortcuts |
+| Esc | Close whatever is on top |
+
+## Layout
+
+- `src/app.rs`: state and actions (navigation, zoom/pan, video, delete with undo)
+- `src/loader.rs`: background decoding and an LRU cache of neighbouring pictures
+- `src/decode.rs`, `src/wic.rs`: image decoding, using the `image` crate first and WIC as the fallback
+- `src/video.rs`: Media Foundation Media Engine, which hands decoded frames to the UI
+- `src/shell.rs`: Explorer thumbnails, Recycle Bin, file associations
+- `src/ui/`: the views (stage, chrome, panels, browser, icons)
