@@ -95,6 +95,8 @@ fn install(opts: Options, report: &mut impl FnMut(Progress)) -> Result<PathBuf, 
         let _ = std::fs::rename(&exe, &stale);
     }
     std::fs::write(&exe, PAYLOAD).map_err(|e| format!("Couldn't write {}: {e}", exe.display()))?;
+    // Gone now unless the old Bloop is still running (then on the next install).
+    clean_old_copies(&dir);
 
     report(Progress::Step(0.55, "Adding to the Start menu…"));
     shortcut(&layout::start_menu_shortcut(), &exe, &dir)
