@@ -10,7 +10,10 @@ param(
     [string]$Version,
     [string]$Notes
 )
-$ErrorActionPreference = 'Stop'
+# Native tools (git, cargo, gh) write progress to stderr, which Windows
+# PowerShell 5.1 would turn into errors under 'Stop'; exit codes are checked
+# explicitly instead.
+$ErrorActionPreference = 'Continue'
 $root = Split-Path -Parent $PSScriptRoot
 Push-Location $root
 try {
@@ -33,10 +36,11 @@ try {
     $Version = (Select-String -Path $manifest -Pattern '^version = "(.+)"').Matches[0].Groups[1].Value
     $tag = "v$Version"
 
-    & $gh release view $tag 2>$null | Out-Null
+    & $gh release view $tag *> $null
     if ($LASTEXITCODE -eq 0) { throw "Release $tag already exists. Bump the version with -Version." }
 
     & (Join-Path $PSScriptRoot 'package.ps1')
+    if (-not $?) { throw 'packaging failed' }
     $setup = Join-Path $root "dist\Bloop-Setup-$Version.exe"
 
     git push

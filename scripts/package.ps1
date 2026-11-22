@@ -1,6 +1,6 @@
 # Builds Bloop and its installer, and puts dist\Bloop-Setup-<version>.exe
 # next to the repo root. Run from anywhere:  .\scripts\package.ps1
-$ErrorActionPreference = 'Stop'
+$ErrorActionPreference = 'Continue'  # exit codes are checked explicitly
 $root = Split-Path -Parent $PSScriptRoot
 Push-Location $root
 try {
