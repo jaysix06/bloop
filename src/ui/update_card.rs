@@ -12,7 +12,9 @@ use zgx::{
 };
 
 pub fn update_card(app: Rc<App>) -> View {
-    div().child_when(
+    // Zero-height and absolute: an overlay child otherwise stretches over the
+    // whole window and would swallow every click on the picture.
+    div().absolute().top(0.).left(0.).right(0.).h(0.).overflow_visible().child_when(
         {
             let app = app.clone();
             move || match app.update.get() {
